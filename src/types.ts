@@ -24,11 +24,17 @@ export interface ColorTest {
 export interface UserData {
   name: string;
   previousSchool: string;
+  gender: 'Laki-laki' | 'Perempuan';
+  registrationDate: string;
+  registrationNumber: string;
+  address: string;
+  birthDate: string;
 }
 
 export interface TestResult {
   scores: Record<Major, number>;
   isColorBlind: boolean;
+  eyeHealthStatus: 'Normal' | 'Terindikasi Buta Warna' | 'Terindikasi Gangguan Penglihatan (Mata Minus/Silinder/Low Vision)';
   recommendedMajor: Major;
   userData: UserData;
 }

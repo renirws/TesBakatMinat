@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -16,7 +18,8 @@ import {
   Settings, 
   Truck, 
   Anchor,
-  Info
+  Info,
+  Download
 } from 'lucide-react';
 import { Major, UserData, TestResult, Question } from './types';
 import { QUESTIONS, INTEREST_QUESTIONS, COLOR_TESTS } from './data/questions';
@@ -35,7 +38,15 @@ const ProgressBar = ({ current, total }: { current: number; total: number }) => 
 
 export default function App() {
   const [step, setStep] = useState<'intro' | 'biodata' | 'aptitude' | 'interest' | 'color' | 'result'>('intro');
-  const [userData, setUserData] = useState<UserData>({ name: '', previousSchool: '' });
+  const [userData, setUserData] = useState<UserData>({ 
+    name: '', 
+    previousSchool: '',
+    gender: 'Laki-laki',
+    registrationDate: new Date().toLocaleDateString('id-ID'),
+    registrationNumber: `TP1-${Date.now().toString().slice(-6)}`,
+    address: '',
+    birthDate: ''
+  });
   const [answers, setAnswers] = useState<Record<string, number>>({}); // question index -> option index
   const [colorAnswers, setColorAnswers] = useState<Record<string, string>>({});
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -105,12 +116,22 @@ export default function App() {
       }
     });
 
-    // Check color blindness (simple threshold)
-    let correctColor = 0;
+    // Check color blindness and visual clarity
+    let correctColorCount = 0;
+    let cannotSeeCount = 0;
+    
     COLOR_TESTS.forEach(test => {
-      if (colorAnswers[test.id] === test.answer) correctColor++;
+      const selected = colorAnswers[test.id];
+      if (selected === test.answer) correctColorCount++;
+      else if (selected === 'X') cannotSeeCount++;
     });
-    const isColorBlind = correctColor < 3;
+
+    const isColorBlind = correctColorCount < 3 && cannotSeeCount < 2;
+    const isLowVision = cannotSeeCount >= 2;
+
+    let eyeHealthStatus: TestResult['eyeHealthStatus'] = 'Normal';
+    if (isLowVision) eyeHealthStatus = 'Terindikasi Gangguan Penglihatan (Mata Minus/Silinder/Low Vision)';
+    else if (isColorBlind) eyeHealthStatus = 'Terindikasi Buta Warna';
 
     // Determine recommended
     let recommended = Major.LOGISTIK;
@@ -118,14 +139,14 @@ export default function App() {
 
     Object.entries(scores).forEach(([major, score]) => {
       if (score > maxScore) {
-        // If color blind, DKV is not recommended if there are other picks
-        if (isColorBlind && major === Major.DKV) return;
+        // If color blind, DKV is not recommended
+        if ((isColorBlind || isLowVision) && major === Major.DKV) return;
         maxScore = score;
         recommended = major as Major;
       }
     });
 
-    return { scores, isColorBlind, recommendedMajor: recommended, userData };
+    return { scores, isColorBlind, eyeHealthStatus, recommendedMajor: recommended, userData };
   };
 
   const pageVariants = {
@@ -221,41 +242,78 @@ export default function App() {
                 <User className="w-5 h-5" />
                 <h2 className="text-xl font-bold">Lengkapi Biodata</h2>
               </div>
-              <div className="space-y-4">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-1">Nama Lengkap</label>
                   <input 
                     type="text" 
                     placeholder="Masukkan nama lengkapmu..."
-                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition"
+                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition text-sm"
                     value={userData.name}
                     onChange={(e) => setUserData({...userData, name: e.target.value})}
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Jenis Kelamin</label>
+                  <div className="flex gap-2">
+                    {['Laki-laki', 'Perempuan'].map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => setUserData({...userData, gender: g as any})}
+                        className={`flex-1 p-3 rounded-xl border-2 font-bold text-sm transition ${
+                          userData.gender === g 
+                            ? 'bg-blue-600 border-blue-600 text-white' 
+                            : 'bg-gray-50 border-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Tanggal Lahir</label>
+                  <input 
+                    type="date" 
+                    className="w-full p-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition text-sm"
+                    value={userData.birthDate}
+                    onChange={(e) => setUserData({...userData, birthDate: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-1">Asal Sekolah (SMP)</label>
                   <input 
                     type="text" 
                     placeholder="Nama sekolah asal..."
-                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition"
+                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition text-sm"
                     value={userData.previousSchool}
                     onChange={(e) => setUserData({...userData, previousSchool: e.target.value})}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Alamat Tinggal</label>
+                  <textarea 
+                    rows={2}
+                    placeholder="Masukkan alamat lengkap..."
+                    className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-500 outline-none transition text-sm resize-none"
+                    value={userData.address}
+                    onChange={(e) => setUserData({...userData, address: e.target.value})}
                   />
                 </div>
               </div>
               <div className="flex gap-4">
                 <button 
                   onClick={handleBack}
-                  className="w-1/3 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold flex items-center justify-center"
+                  className="w-1/3 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold flex items-center justify-center text-sm"
                 >
                   Kembali
                 </button>
                 <button 
-                  disabled={!userData.name || !userData.previousSchool}
+                  disabled={!userData.name || !userData.previousSchool || !userData.address || !userData.birthDate}
                   onClick={handleNext}
-                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition disabled:opacity-50"
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition disabled:opacity-50 text-sm shadow-lg shadow-blue-100"
                 >
-                  Lanjutkan
+                  Lanjutkan Tes
                 </button>
               </div>
             </motion.div>
@@ -327,16 +385,41 @@ export default function App() {
                 Tes Buta Warna
               </div>
               <div className="flex flex-col items-center gap-6">
-                <div className="w-48 h-48 rounded-full border-8 border-gray-100 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                   {/* Simplified Ishihara Simulation */}
-                   <div className="absolute inset-0 flex flex-wrap gap-1 p-2 opacity-80">
-                      {Array.from({length: 100}).map((_, i) => (
-                        <div key={i} className={`w-3 h-3 rounded-full ${i % 3 === 0 ? 'bg-green-500' : 'bg-red-500'} opacity-50`} />
-                      ))}
+                <div className="w-48 h-48 rounded-full border-8 border-gray-200 bg-white flex items-center justify-center relative overflow-hidden shadow-2xl shadow-blue-100">
+                   {/* Denser dots for background to simulate real Ishihara plates */}
+                   <div className="absolute inset-0 flex flex-wrap gap-1 p-1 justify-center items-center opacity-60">
+                      {Array.from({length: 200}).map((_, i) => {
+                        const randomSize = Math.random() * 6 + 4;
+                        // Ishihara background: variety of green, brown, dull yellow
+                        const bgColors = ['#8cb07d', '#7d9e6c', '#a69066', '#c4a675', '#6b8256', '#94ad82', '#b5a172'];
+                        return (
+                          <div 
+                            key={i} 
+                            style={{ 
+                              width: `${randomSize}px`, 
+                              height: `${randomSize}px`,
+                              backgroundColor: bgColors[Math.floor(Math.random() * bgColors.length)],
+                              opacity: 0.8
+                            }}
+                            className="rounded-full shrink-0" 
+                          />
+                        );
+                      })}
                    </div>
-                   <span className="text-6xl font-bold text-gray-700 z-10">{COLOR_TESTS[currentIdx].answer}</span>
+                   {/* The Number - Brighter and clearer but using color combinations that challenge color perception */}
+                   <motion.span 
+                      key={currentIdx}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="text-8xl font-black text-orange-600/50 z-10 select-none mix-blend-darken tracking-tighter drop-shadow-[0_0_1px_rgba(0,0,0,0.1)]"
+                    >
+                     {COLOR_TESTS[currentIdx].answer}
+                   </motion.span>
                 </div>
-                <p className="text-gray-500 text-center italic">Angka berapa yang kamu lihat di lingkaran tersebut?</p>
+                <div className="max-w-xs text-center">
+                  <p className="text-gray-500 text-xs italic mb-2">Angka di atas dibuat samar untuk menguji ketajaman mata dan persepsi warna Kamu.</p>
+                  <p className="text-sm font-bold text-gray-700">Angka berapa yang kamu lihat?</p>
+                </div>
                 <div className="grid grid-cols-3 gap-2 w-full">
                   {['12', '8', '6', '29', '74', 'X'].map((val) => (
                     <button 
@@ -345,13 +428,13 @@ export default function App() {
                         setColorAnswers({ ...colorAnswers, [COLOR_TESTS[currentIdx].id]: val });
                         setTimeout(handleNext, 300);
                       }}
-                      className={`p-4 rounded-xl border-2 font-bold text-lg ${
+                      className={`p-4 rounded-xl border-2 font-bold text-lg transition-all ${
                         colorAnswers[COLOR_TESTS[currentIdx].id] === val 
-                          ? 'bg-blue-600 border-blue-600 text-white' 
-                          : 'bg-white border-gray-200 hover:border-blue-400'
+                          ? 'bg-blue-600 border-blue-600 text-white transform scale-105' 
+                          : 'bg-white border-gray-200 hover:border-blue-400 text-gray-700'
                       }`}
                     >
-                      {val}
+                      {val === 'X' ? 'TIDAK TERLIHAT' : val}
                     </button>
                   ))}
                 </div>
@@ -373,67 +456,245 @@ export default function App() {
 }
 
 function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () => void }) {
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadPDF = async () => {
+    if (!resultRef.current) return;
+    setIsDownloading(true);
+
+    try {
+      const element = resultRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width / 2, canvas.height / 2]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`Hasil_Tes_${data.userData.name.replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      alert('Gagal mengunduh PDF. Silakan coba lagi.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <motion.div 
-      variants={{
-        initial: { scale: 0.9, opacity: 0 },
-        animate: { scale: 1, opacity: 1 }
-      }}
-      initial="initial"
-      animate="animate"
-      className="flex flex-col items-center text-center space-y-6"
-    >
-      <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-green-50 mb-4 relative">
-        <img 
-          src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
-          alt="SMK Tanjung Priok 1 Logo"
-          className="w-20 h-20 object-contain"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 border-4 border-white shadow-md">
-          <CheckCircle2 className="w-6 h-6" />
+    <>
+      {/* Hidden layout for PDF export to ensure exact branding */}
+      <div className="fixed -left-[9999px] top-0">
+        <div 
+          ref={resultRef}
+          className="w-[600px] p-10 bg-white"
+        >
+          <div className="flex flex-col items-center border-b-2 border-gray-100 pb-8 mb-8">
+            <img 
+              src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+              className="w-24 h-24 mb-4"
+              alt="Logo"
+              crossOrigin="anonymous"
+            />
+            <h1 className="text-2xl font-black text-blue-900 uppercase">SMK Tanjung Priok 1</h1>
+            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Laporan Hasil Penjajakan Bakat & Minat</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6 text-[10px]">
+            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+              <p className="text-gray-400 font-bold uppercase">No. Pendaftaran</p>
+              <p className="font-bold text-blue-900">{data.userData.registrationNumber}</p>
+            </div>
+            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 text-right">
+              <p className="text-gray-400 font-bold uppercase">Tgl Daftar</p>
+              <p className="font-bold text-blue-900">{data.userData.registrationDate}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Nama Lengkap</p>
+              <p className="text-lg font-bold text-gray-800 leading-tight">{data.userData.name}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Jenis Kelamin</p>
+              <p className="text-lg font-bold text-gray-800">{data.userData.gender}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Tanggal Lahir</p>
+              <p className="text-sm font-bold text-gray-800">{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Asal Sekolah</p>
+              <p className="text-lg font-bold text-gray-800">{data.userData.previousSchool}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-xl col-span-2">
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Alamat</p>
+              <p className="text-xs font-medium text-gray-800 leading-tight">{data.userData.address}</p>
+            </div>
+          </div>
+
+          <div className="bg-blue-600 rounded-2xl p-8 text-white mb-8">
+            <p className="uppercase font-bold tracking-tighter text-sm mb-2 opacity-80">Rekomendasi Jurusan Utama</p>
+            <h2 className="text-4xl font-black mb-4">{data.recommendedMajor}</h2>
+            <div className="h-1 bg-white/20 w-full mb-4"></div>
+            <p className="text-sm leading-relaxed text-blue-50">
+              {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Siswa menunjukkan potensi besar dalam bidang mekanika logam dan sistem perkapalan. Kepemimpinan teknis yang baik di lingkungan industri berat."}
+              {data.recommendedMajor === Major.TKR && "Siswa memiliki naluri tajam dalam diagnostik kendaraan dan sistem otomotif. Cocok untuk spesialisasi servis otomotif modern."}
+              {data.recommendedMajor === Major.DKV && "Siswa memiliki kepekaan visual dan daya kreatif tinggi. Potensi besar dalam industri kreatif digital dan multimedia."}
+              {data.recommendedMajor === Major.LOGISTIK && "Siswa sangat cakap dalam manajemen inventori dan alur distribusi. Sangat dibutuhkan di hub-hub pelabuhan internasional."}
+            </p>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="font-bold text-gray-700 uppercase text-xs mb-4">Rincian Skor Per Jurusan</h3>
+            <div className="space-y-3">
+              {Object.entries(data.scores).map(([major, score]) => (
+                <div key={major} className="flex items-center gap-4">
+                  <div className="w-32 text-xs font-bold text-gray-600">{major}</div>
+                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${major === data.recommendedMajor ? 'bg-blue-500' : 'bg-gray-300'}`}
+                      style={{ width: `${Math.min(100, (score / 25) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="w-8 text-xs font-black text-gray-400">{score}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-6 rounded-2xl border-2 border-gray-100">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Status Kesehatan Mata</p>
+                <p className={`text-sm font-black ${data.eyeHealthStatus === 'Normal' ? 'text-green-600' : 'text-orange-600'}`}>
+                  {data.eyeHealthStatus.toUpperCase()}
+                </p>
+                {data.eyeHealthStatus !== 'Normal' && (
+                  <p className="text-[8px] text-gray-500 mt-1 max-w-[200px]">
+                    *Saran: Segera konsultasi ke Dokter Mata/Optik terdekat untuk pemeriksaan ketajaman visual dan persepsi warna lebih mendalam.
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Tanggal Tes</p>
+                <p className="font-bold text-gray-800">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 pt-6 border-t border-dashed border-gray-200 text-center">
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Dokumen Digital Resmi SMK Tanjung Priok 1</p>
+          </div>
         </div>
       </div>
-      <div>
-        <h2 className="text-2xl font-bold">Hasil Rekomendasi</h2>
-        <p className="text-gray-500">Halo {data.userData.name}, berdasarkan tesmu:</p>
-      </div>
 
-      <div className="w-full bg-blue-600 text-white p-8 rounded-3xl space-y-4 shadow-xl shadow-blue-200">
-        <span className="inline-block px-4 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-widest">Jurusan Paling Cocok</span>
-        <h1 className="text-4xl font-black">{data.recommendedMajor}</h1>
-        <p className="text-sm text-blue-100">
-          {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Kamu memiliki ketertarikan kuat pada konstruksi logam dan mesin berat. Sangat cocok untuk menjadi ahli permesinan kapal."}
-          {data.recommendedMajor === Major.TKR && "Kamu unggul dalam pemecahan masalah teknis kendaraan dan otomotif. Bengkel dan inovasi mesin adalah duniamu."}
-          {data.recommendedMajor === Major.DKV && "Kreativitas dan jiwa senimu sangat tinggi. Dunia konten digital dan desain menunggumu."}
-          {data.recommendedMajor === Major.LOGISTIK && "Kamu sangat terorganisir dan memiliki kemampuan analisis alur kerja yang baik. Ahli logistik masa depan!"}
-        </p>
-      </div>
-
-      <div className="w-full text-left bg-gray-50 p-6 rounded-2xl space-y-4">
-        <h4 className="font-bold text-gray-700 flex items-center gap-2">
-          <Palette className="w-4 h-4" /> Status Mata
-        </h4>
-        <div className={`p-3 rounded-xl font-bold text-center ${data.isColorBlind ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-          {data.isColorBlind ? 'Terindikasi Buta Warna' : 'Tidak Buta Warna (Normal)'}
-        </div>
-        <p className="text-xs text-gray-500">
-          *Hasil ini bersifat awal. Disarankan melakukan validasi dengan tim psikolog sekolah saat pendaftaran fisik.
-        </p>
-      </div>
-
-      <button 
-        onClick={onRestart}
-        className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition"
+      <motion.div 
+        variants={{
+          initial: { scale: 0.9, opacity: 0 },
+          animate: { scale: 1, opacity: 1 }
+        }}
+        initial="initial"
+        animate="animate"
+        className="flex flex-col items-center text-center space-y-6 w-full"
       >
-        Ulangi Tes
-      </button>
+        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-green-50 mb-4 relative">
+          <img 
+            src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+            alt="SMK Tanjung Priok 1 Logo"
+            className="w-20 h-20 object-contain"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1 border-4 border-white shadow-md">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 leading-tight px-4">Selamat! Ini Rekomendasi Untukmu</h2>
+          <p className="text-gray-500 mt-1">Halo {data.userData.name}, berikut hasilnya:</p>
+        </div>
 
-      <div className="flex gap-3 text-[10px] text-gray-400 uppercase font-bold tracking-widest">
-        <span>SMK Tanjung Priok 1</span>
-        <span>•</span>
-        <span>BISA! HEBAT!</span>
-      </div>
-    </motion.div>
+        <div className="w-full bg-blue-600 text-white p-8 rounded-3xl space-y-4 shadow-xl shadow-blue-200">
+          <span className="inline-block px-4 py-1 bg-white/20 rounded-full text-[10px] font-bold uppercase tracking-widest">Jurusan Paling Cocok</span>
+          <h1 className="text-3xl font-black">{data.recommendedMajor}</h1>
+          <p className="text-sm text-blue-100 italic leading-relaxed">
+            {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Kamu memiliki ketertarikan kuat pada konstruksi logam dan mesin berat. Sangat cocok untuk menjadi ahli permesinan kapal."}
+            {data.recommendedMajor === Major.TKR && "Kamu unggul dalam pemecahan masalah teknis kendaraan dan otomotif. Bengkel dan inovasi mesin adalah duniamu."}
+            {data.recommendedMajor === Major.DKV && "Kreativitas dan jiwa senimu sangat tinggi. Dunia konten digital dan desain menunggumu."}
+            {data.recommendedMajor === Major.LOGISTIK && "Kamu sangat terorganisir dan memiliki kemampuan analisis alur kerja yang baik. Ahli logistik masa depan!"}
+          </p>
+        </div>
+
+        <div className="w-full text-left bg-gray-50 p-6 rounded-2xl space-y-4 border border-gray-100">
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+               <p className="text-gray-400 uppercase font-bold text-[8px]">No. Pendaftaran</p>
+               <p className="font-bold text-gray-900">{data.userData.registrationNumber}</p>
+            </div>
+            <div className="p-3 bg-white rounded-xl border border-gray-100 text-right shadow-sm">
+               <p className="text-gray-400 uppercase font-bold text-[8px]">Tgl Daftar</p>
+               <p className="font-bold text-gray-900">{data.userData.registrationDate}</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-start">
+              <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                <Palette className="w-4 h-4 text-blue-600" /> Hasil Tes Mata
+              </h4>
+              <span className={`px-3 py-1 rounded-full text-[9px] font-bold text-center leading-tight max-w-[150px] ${data.eyeHealthStatus === 'Normal' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                {data.eyeHealthStatus}
+              </span>
+            </div>
+            {data.eyeHealthStatus !== 'Normal' && (
+              <p className="text-[10px] text-blue-800 bg-blue-50 p-3 rounded-xl border border-blue-100 font-medium">
+                Penting: Hasil menunjukkan Kamu mungkin memerlukan bantuan alat optik (kacamata) atau memiliki kondisi buta warna. <strong>Sangat disarankan</strong> untuk melakukan konsultasi mata ke ahlinya.
+              </p>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-500 bg-white p-3 rounded-lg border border-gray-100 italic">
+            *Hasil ini bersifat awal. Disarankan melakukan validasi dengan tim medis sekolah saat pendaftaran fisik.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full">
+          <button 
+            onClick={downloadPDF}
+            disabled={isDownloading}
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+          >
+            {isDownloading ? (
+              <span className="flex items-center gap-2">Generating PDF...</span>
+            ) : (
+              <>
+                <Download className="w-5 h-5" />
+                Simpan Hasil (PDF)
+              </>
+            )}
+          </button>
+          
+          <button 
+            onClick={onRestart}
+            className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold hover:bg-gray-200 transition"
+          >
+            Ulangi Tes
+          </button>
+        </div>
+
+        <div className="flex gap-3 text-[10px] text-gray-300 uppercase font-bold tracking-widest pt-4">
+          <span>SMK Tanjung Priok 1</span>
+          <span>•</span>
+          <span>BISA! HEBAT!</span>
+        </div>
+      </motion.div>
+    </>
   );
 }
