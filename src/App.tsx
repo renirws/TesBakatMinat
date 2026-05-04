@@ -52,7 +52,18 @@ export default function App() {
   const [colorAnswers, setColorAnswers] = useState<Record<string, string>>({});
   const [currentIdx, setCurrentIdx] = useState(0);
 
+  const [result, setResult] = useState<TestResult | null>(null);
+  const shuffledColorTests = useMemo(() => {
+    return [...COLOR_TESTS].sort(() => Math.random() - 0.5);
+  }, []);
+
   const allQuestions = useMemo(() => [...QUESTIONS, ...INTEREST_QUESTIONS], []);
+
+  const handleFinish = () => {
+    const res = calculateResults();
+    setResult(res);
+    setStep('result');
+  };
 
   const handleNext = () => {
     if (step === 'intro') setStep('biodata');
@@ -70,8 +81,8 @@ export default function App() {
          setStep('color');
        }
     } else if (step === 'color') {
-        if (currentIdx < COLOR_TESTS.length - 1) setCurrentIdx(currentIdx + 1);
-        else setStep('result');
+        if (currentIdx < shuffledColorTests.length - 1) setCurrentIdx(currentIdx + 1);
+        else handleFinish();
     }
   };
 
@@ -149,18 +160,6 @@ export default function App() {
 
     const res = { scores, isColorBlind, eyeHealthStatus, recommendedMajor: recommended, userData };
     
-    // Auto-submit to background (Fire and forget, user doesn't need to wait)
-    fetch('/api/submit-test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...res.userData,
-        recommendedMajor: res.recommendedMajor,
-        eyeHealthStatus: res.eyeHealthStatus,
-        scores: res.scores
-      })
-    }).catch(err => console.error('Failed to auto-submit:', err));
-
     return res;
   };
 
@@ -394,18 +393,16 @@ export default function App() {
               exit="exit"
               className="space-y-6"
             >
-              <ProgressBar current={currentIdx + 1} total={COLOR_TESTS.length} />
+              <ProgressBar current={currentIdx + 1} total={shuffledColorTests.length} />
               <div className="flex items-center gap-2 text-blue-600 mb-2 font-bold uppercase text-sm">
                 <Palette className="w-5 h-5" />
                 Tes Buta Warna
               </div>
               <div className="flex flex-col items-center gap-6">
                 <div className="w-48 h-48 rounded-full border-8 border-gray-200 bg-white flex items-center justify-center relative overflow-hidden shadow-2xl shadow-blue-100">
-                   {/* Denser dots for background to simulate real Ishihara plates */}
                    <div className="absolute inset-0 flex flex-wrap gap-1 p-1 justify-center items-center opacity-60">
                       {Array.from({length: 200}).map((_, i) => {
                         const randomSize = Math.random() * 6 + 4;
-                        // Ishihara background: variety of green, brown, dull yellow
                         const bgColors = ['#8cb07d', '#7d9e6c', '#a69066', '#c4a675', '#6b8256', '#94ad82', '#b5a172'];
                         return (
                           <div 
@@ -421,14 +418,13 @@ export default function App() {
                         );
                       })}
                    </div>
-                   {/* The Number - Brighter and clearer but using color combinations that challenge color perception */}
                    <motion.span 
                       key={currentIdx}
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       className="text-8xl font-black text-orange-600/50 z-10 select-none mix-blend-darken tracking-tighter drop-shadow-[0_0_1px_rgba(0,0,0,0.1)]"
                     >
-                     {COLOR_TESTS[currentIdx].answer}
+                     {shuffledColorTests[currentIdx].answer}
                    </motion.span>
                 </div>
                 <div className="max-w-xs text-center">
@@ -440,11 +436,11 @@ export default function App() {
                     <button 
                       key={val}
                       onClick={() => {
-                        setColorAnswers({ ...colorAnswers, [COLOR_TESTS[currentIdx].id]: val });
+                        setColorAnswers({ ...colorAnswers, [shuffledColorTests[currentIdx].id]: val });
                         setTimeout(handleNext, 300);
                       }}
                       className={`p-4 rounded-xl border-2 font-bold text-lg transition-all ${
-                        colorAnswers[COLOR_TESTS[currentIdx].id] === val 
+                        colorAnswers[shuffledColorTests[currentIdx].id] === val 
                           ? 'bg-blue-600 border-blue-600 text-white transform scale-105' 
                           : 'bg-white border-gray-200 hover:border-blue-400 text-gray-700'
                       }`}
@@ -457,8 +453,8 @@ export default function App() {
             </motion.div>
           )}
 
-          {step === 'result' && (
-            <ResultSection data={calculateResults()} onRestart={() => window.location.reload()} />
+          {step === 'result' && result && (
+            <ResultSection data={result} onRestart={() => window.location.reload()} />
           )}
         </AnimatePresence>
       </main>
@@ -473,6 +469,24 @@ export default function App() {
 function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () => void }) {
   const resultRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const submittedRef = useRef(false);
+
+  React.useEffect(() => {
+    // Only submit once
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+
+    fetch('/api/submit-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...data.userData,
+        recommendedMajor: data.recommendedMajor,
+        eyeHealthStatus: data.eyeHealthStatus,
+        scores: data.scores
+      })
+    }).catch(err => console.error('Failed to auto-submit:', err));
+  }, [data]);
 
   const downloadPDF = async () => {
     if (!resultRef.current) return;
@@ -535,34 +549,34 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Nama Lengkap</p>
-              <p className="text-lg font-bold leading-tight" style={{ color: '#111827' }}>{data.userData.name}</p>
+          <div className="grid grid-cols-2 gap-4 mb-6 text-sm" style={{ display: 'grid' }}>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Nama Lengkap</p>
+              <p className="text-lg font-bold leading-tight" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.name}</p>
             </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Jenis Kelamin</p>
-              <p className="text-lg font-bold" style={{ color: '#111827' }}>{data.userData.gender}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Jenis Kelamin</p>
+              <p className="text-lg font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.gender}</p>
             </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Tanggal Lahir</p>
-              <p className="text-sm font-bold" style={{ color: '#111827' }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Tanggal Lahir</p>
+              <p className="text-sm font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Asal Sekolah</p>
-              <p className="text-lg font-bold" style={{ color: '#111827' }}>{data.userData.previousSchool}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Asal Sekolah</p>
+              <p className="text-lg font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.previousSchool}</p>
             </div>
-            <div className="p-4 rounded-xl col-span-2" style={{ backgroundColor: '#f9fafb' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Alamat</p>
-              <p className="text-xs font-medium leading-tight" style={{ color: '#111827' }}>{data.userData.address}</p>
+            <div className="p-4 rounded-xl col-span-2" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', gridColumn: 'span 2 / span 2' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Alamat</p>
+              <p className="text-xs font-medium leading-tight" style={{ color: '#111827', fontWeight: 'medium' }}>{data.userData.address}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl p-8 mb-8" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
-            <p className="uppercase font-bold tracking-tighter text-sm mb-2" style={{ opacity: 0.8 }}>Rekomendasi Jurusan Utama</p>
-            <h2 className="text-4xl font-black mb-4">{data.recommendedMajor}</h2>
-            <div className="h-1 w-full mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}></div>
-            <p className="text-sm leading-relaxed" style={{ color: '#eff6ff' }}>
+          <div className="rounded-2xl p-8 mb-8" style={{ backgroundColor: '#2563eb', color: '#ffffff', borderRadius: '16px', padding: '32px' }}>
+            <p className="uppercase font-bold tracking-tighter text-sm mb-2" style={{ opacity: 0.8, fontWeight: 'bold' }}>Rekomendasi Jurusan Utama</p>
+            <h2 className="text-4xl font-black mb-4" style={{ fontWeight: '900', marginBottom: '16px' }}>{data.recommendedMajor}</h2>
+            <div className="h-1 w-full mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', height: '4px', marginBottom: '16px' }}></div>
+            <p className="text-sm leading-relaxed" style={{ color: '#eff6ff', fontSize: '14px', lineHeight: '1.625' }}>
               {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Siswa menunjukkan potensi besar dalam bidang mekanika logam dan sistem perkapalan. Kepemimpinan teknis yang baik di lingkungan industri berat."}
               {data.recommendedMajor === Major.TKR && "Siswa memiliki naluri tajam dalam diagnostik kendaraan dan sistem otomotif. Cocok untuk spesialisasi servis otomotif modern."}
               {data.recommendedMajor === Major.DKV && "Siswa memiliki kepekaan visual dan daya kreatif tinggi. Potensi besar dalam industri kreatif digital dan multimedia."}
@@ -591,28 +605,28 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl border-2" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
-            <div className="flex justify-between items-center">
+          <div className="p-6 rounded-2xl" style={{ backgroundColor: '#f9fafb', border: '2px solid #f3f4f6', borderRadius: '16px', padding: '24px' }}>
+            <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af' }}>Status Kesehatan Mata</p>
-                <p className="text-sm font-black" style={{ color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c' }}>
+                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Status Kesehatan Mata</p>
+                <p className="text-sm font-black" style={{ color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c', fontWeight: '900' }}>
                   {data.eyeHealthStatus.toUpperCase()}
                 </p>
                 {data.eyeHealthStatus !== 'Normal' && (
-                  <p className="text-[8px] mt-1 max-w-[200px]" style={{ color: '#6b7280' }}>
+                  <p className="text-[8px] mt-1 max-w-[200px]" style={{ color: '#6b7280', fontSize: '8px' }}>
                     *Saran: Segera konsultasi ke Dokter Mata/Optik terdekat untuk pemeriksaan ketajaman visual dan persepsi warna lebih mendalam.
                   </p>
                 )}
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af' }}>Tanggal Tes</p>
-                <p className="font-bold" style={{ color: '#1f2937' }}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <div className="text-right" style={{ textAlign: 'right' }}>
+                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Tanggal Tes</p>
+                <p className="font-bold" style={{ color: '#1f2937', fontWeight: 'bold' }}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-dashed text-center" style={{ borderColor: '#e5e7eb' }}>
-            <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
+          <div className="mt-10 pt-6 text-center" style={{ borderTop: '1px dashed #e5e7eb', marginTop: '40px', paddingTop: '24px', textAlign: 'center' }}>
+            <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
           </div>
         </div>
       </div>
@@ -653,33 +667,33 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           </p>
         </div>
 
-        <div className="w-full text-left bg-gray-50 p-6 rounded-2xl space-y-4 border border-gray-100">
+        <div className="w-full text-left bg-gray-50 p-6 rounded-2xl space-y-4 shadow-sm" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
           <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-               <p className="text-gray-400 uppercase font-bold text-[8px]">No. Pendaftaran</p>
-               <p className="font-bold text-gray-900">{data.userData.registrationNumber}</p>
+            <div className="p-3 rounded-xl shadow-sm" style={{ backgroundColor: '#ffffff', border: '1px solid #f3f4f6' }}>
+               <p className="uppercase font-bold text-[8px]" style={{ color: '#9ca3af' }}>No. Pendaftaran</p>
+               <p className="font-bold" style={{ color: '#111827' }}>{data.userData.registrationNumber}</p>
             </div>
-            <div className="p-3 bg-white rounded-xl border border-gray-100 text-right shadow-sm">
-               <p className="text-gray-400 uppercase font-bold text-[8px]">Tgl Daftar</p>
-               <p className="font-bold text-gray-900">{data.userData.registrationDate}</p>
+            <div className="p-3 rounded-xl text-right shadow-sm" style={{ backgroundColor: '#ffffff', border: '1px solid #f3f4f6' }}>
+               <p className="uppercase font-bold text-[8px]" style={{ color: '#9ca3af' }}>Tgl Daftar</p>
+               <p className="font-bold" style={{ color: '#111827' }}>{data.userData.registrationDate}</p>
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-start">
-              <h4 className="font-bold text-gray-700 flex items-center gap-2">
-                <Palette className="w-4 h-4 text-blue-600" /> Hasil Tes Mata
+              <h4 className="font-bold flex items-center gap-2" style={{ color: '#374151' }}>
+                <Palette className="w-4 h-4" style={{ color: '#2563eb' }} /> Hasil Tes Mata
               </h4>
-              <span className={`px-3 py-1 rounded-full text-[9px] font-bold text-center leading-tight max-w-[150px] ${data.eyeHealthStatus === 'Normal' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+              <span className="px-3 py-1 rounded-full text-[9px] font-bold text-center leading-tight max-w-[150px]" style={{ backgroundColor: data.eyeHealthStatus === 'Normal' ? '#dcfce7' : '#ffedd5', color: data.eyeHealthStatus === 'Normal' ? '#15803d' : '#9a3412' }}>
                 {data.eyeHealthStatus}
               </span>
             </div>
             {data.eyeHealthStatus !== 'Normal' && (
-              <p className="text-[10px] text-blue-800 bg-blue-50 p-3 rounded-xl border border-blue-100 font-medium">
+              <p className="text-[10px] p-3 rounded-xl font-medium" style={{ color: '#1e40af', backgroundColor: '#eff6ff', border: '1px solid #dbeafe' }}>
                 Penting: Hasil menunjukkan Kamu mungkin memerlukan bantuan alat optik (kacamata) atau memiliki kondisi buta warna. <strong>Sangat disarankan</strong> untuk melakukan konsultasi mata ke ahlinya.
               </p>
             )}
           </div>
-          <p className="text-[10px] text-gray-500 bg-white p-3 rounded-lg border border-gray-100 italic">
+          <p className="text-[10px] p-3 rounded-lg italic" style={{ color: '#6b7280', backgroundColor: '#ffffff', border: '1px solid #f3f4f6' }}>
             *Hasil ini bersifat awal. Disarankan melakukan validasi dengan tim medis sekolah saat pendaftaran fisik.
           </p>
         </div>
