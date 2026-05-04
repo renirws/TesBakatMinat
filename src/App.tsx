@@ -525,11 +525,11 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6 text-[10px]">
-            <div className="p-2 rounded-lg border" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
+            <div className="p-2 rounded-lg" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
               <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>No. Pendaftaran</p>
               <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationNumber}</p>
             </div>
-            <div className="p-2 rounded-lg border text-right" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
+            <div className="p-2 rounded-lg text-right" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
               <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>Tgl Daftar</p>
               <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationDate}</p>
             </div>
@@ -559,7 +559,7 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           </div>
 
           <div className="rounded-2xl p-8 mb-8" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
-            <p className="uppercase font-bold tracking-tighter text-sm mb-2 opacity-80">Rekomendasi Jurusan Utama</p>
+            <p className="uppercase font-bold tracking-tighter text-sm mb-2" style={{ opacity: 0.8 }}>Rekomendasi Jurusan Utama</p>
             <h2 className="text-4xl font-black mb-4">{data.recommendedMajor}</h2>
             <div className="h-1 w-full mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}></div>
             <p className="text-sm leading-relaxed" style={{ color: '#eff6ff' }}>
