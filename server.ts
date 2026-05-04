@@ -2,8 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
-import { google } from "googleapis";
 import dotenv from "dotenv";
+import axios from "axios";
 
 dotenv.config();
 
@@ -16,67 +16,23 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Google Sheets Auth
-  const auth = new google.auth.JWT(
-    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    null,
-    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    ["https://www.googleapis.com/auth/spreadsheets"]
-  );
-
-  const sheets = google.sheets({ version: "v4", auth });
-
-  // API Route to submit data
+  // API Route to submit data via Webhook
   app.post("/api/submit-test", async (req, res) => {
     try {
-      const { 
-        registrationNumber, 
-        registrationDate, 
-        name, 
-        gender, 
-        birthDate, 
-        previousSchool, 
-        address, 
-        recommendedMajor, 
-        eyeHealthStatus, 
-        scores 
-      } = req.body;
-
-      const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+      const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL;
       
-      if (!spreadsheetId) {
-        throw new Error("GOOGLE_SHEET_ID is not configured");
+      if (!webhookUrl) {
+        console.warn("GOOGLE_SHEET_WEBHOOK_URL is not configured.");
+        return res.status(200).json({ message: "Webhook skipped (not configured)" });
       }
 
-      await sheets.spreadsheets.values.append({
-        spreadsheetId,
-        range: "Sheet1!A2", // Assumes first row is header
-        valueInputOption: "RAW",
-        requestBody: {
-          values: [
-            [
-              registrationNumber,
-              registrationDate,
-              name,
-              gender,
-              birthDate,
-              previousSchool,
-              address,
-              recommendedMajor,
-              eyeHealthStatus,
-              scores['Pemesinan Kapal'],
-              scores['Teknik Kendaraan Ringan'],
-              scores['Desain Komunikasi Visual'],
-              scores['Teknik Logistik']
-            ],
-          ],
-        },
-      });
+      // Proxy request to Google Apps Script
+      await axios.post(webhookUrl, req.body);
 
-      res.status(200).json({ message: "Data submitted successfully" });
+      res.status(200).json({ message: "Data submitted to Google Sheets successfully" });
     } catch (error) {
-      console.error("Error submitting to Google Sheets:", error);
-      res.status(500).json({ error: "Failed to submit data to Google Sheets" });
+      console.error("Error submitting to Google Sheets Webhook:", error);
+      res.status(500).json({ error: "Failed to submit data" });
     }
   });
 
