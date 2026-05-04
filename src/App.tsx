@@ -513,7 +513,7 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           style={{ backgroundColor: '#ffffff' }}
           className="w-[600px] p-10"
         >
-          <div className="flex flex-col items-center border-b-2 border-gray-100 pb-8 mb-8">
+          <div className="flex flex-col items-center pb-8 mb-8" style={{ borderBottom: '2px solid #f3f4f6' }}>
             <img 
               src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
               className="w-24 h-24 mb-4"
@@ -525,11 +525,11 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6 text-[10px]">
-            <div className="p-2 rounded-lg border border-gray-100" style={{ backgroundColor: '#f9fafb' }}>
+            <div className="p-2 rounded-lg border" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
               <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>No. Pendaftaran</p>
               <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationNumber}</p>
             </div>
-            <div className="p-2 rounded-lg border border-gray-100 text-right" style={{ backgroundColor: '#f9fafb' }}>
+            <div className="p-2 rounded-lg border text-right" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
               <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>Tgl Daftar</p>
               <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationDate}</p>
             </div>
@@ -575,23 +575,23 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             <div className="space-y-3">
               {Object.entries(data.scores).map(([major, score]) => (
                 <div key={major} className="flex items-center gap-4">
-                  <div className="w-32 text-xs font-bold text-gray-600">{major}</div>
+                  <div className="w-32 text-xs font-bold" style={{ color: '#4b5563' }}>{major}</div>
                   <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
                     <div 
                        className="h-full"
                        style={{ 
-                         width: `${Math.min(100, (score / 25) * 100)}%`,
+                         width: `${Math.min(100, (Number(score) / 25) * 100)}%`,
                          backgroundColor: major === data.recommendedMajor ? '#3b82f6' : '#d1d5db'
                        }}
                     />
                   </div>
-                  <div className="w-8 text-xs font-black text-gray-400">{score}</div>
+                  <div className="w-8 text-xs font-black" style={{ color: '#9ca3af' }}>{score}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl border-2 border-gray-100" style={{ backgroundColor: '#f9fafb' }}>
+          <div className="p-6 rounded-2xl border-2" style={{ backgroundColor: '#f9fafb', borderColor: '#f3f4f6' }}>
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af' }}>Status Kesehatan Mata</p>
@@ -611,7 +611,7 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-dashed border-gray-200 text-center" style={{ borderColor: '#e5e7eb' }}>
+          <div className="mt-10 pt-6 border-t border-dashed text-center" style={{ borderColor: '#e5e7eb' }}>
             <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
           </div>
         </div>
