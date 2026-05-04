@@ -33,6 +33,8 @@ export interface UserData {
 
 export interface TestResult {
   scores: Record<Major, number>;
+  aptitudeScores: Record<Major, number>;
+  interestScores: Record<Major, number>;
   isColorBlind: boolean;
   eyeHealthStatus: 'Normal' | 'Terindikasi Buta Warna' | 'Terindikasi Gangguan Penglihatan (Mata Minus/Silinder/Low Vision)';
   recommendedMajor: Major;

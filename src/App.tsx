@@ -8,6 +8,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as ChartTooltip, 
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer, 
+  Cell
+} from 'recharts';
+import { 
   ChevronRight, 
   ChevronLeft, 
   CheckCircle2, 
@@ -116,14 +131,31 @@ export default function App() {
       [Major.LOGISTIK]: 0
     };
 
-    // Calculate from questions
-    allQuestions.forEach((q, qIdx) => {
+    const aptitudeScores: Record<Major, number> = { ...scores };
+    const interestScores: Record<Major, number> = { ...scores };
+
+    // Calculate from questions (Aptitude)
+    QUESTIONS.forEach((q) => {
       const selectedOptIdx = answers[q.id];
       if (selectedOptIdx !== undefined) {
         const option = q.options[selectedOptIdx];
         Object.entries(option.weight).forEach(([major, weight]) => {
           const val = weight as number;
           scores[major as Major] += val || 0;
+          aptitudeScores[major as Major] += val || 0;
+        });
+      }
+    });
+
+    // Calculate from interest questions
+    INTEREST_QUESTIONS.forEach((q) => {
+      const selectedOptIdx = answers[q.id];
+      if (selectedOptIdx !== undefined) {
+        const option = q.options[selectedOptIdx];
+        Object.entries(option.weight).forEach(([major, weight]) => {
+          const val = weight as number;
+          scores[major as Major] += val || 0;
+          interestScores[major as Major] += val || 0;
         });
       }
     });
@@ -132,7 +164,7 @@ export default function App() {
     let correctColorCount = 0;
     let cannotSeeCount = 0;
     
-    COLOR_TESTS.forEach(test => {
+    shuffledColorTests.forEach(test => {
       const selected = colorAnswers[test.id];
       if (selected === test.answer) correctColorCount++;
       else if (selected === 'X') cannotSeeCount++;
@@ -158,7 +190,15 @@ export default function App() {
       }
     });
 
-    const res = { scores, isColorBlind, eyeHealthStatus, recommendedMajor: recommended, userData };
+    const res = { 
+      scores, 
+      aptitudeScores, 
+      interestScores, 
+      isColorBlind, 
+      eyeHealthStatus, 
+      recommendedMajor: recommended, 
+      userData 
+    };
     
     return res;
   };
@@ -472,20 +512,34 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
   const submittedRef = useRef(false);
 
   React.useEffect(() => {
-    // Only submit once
+    // Only submit once. Using a local flag to handle StrictMode double-mounting
     if (submittedRef.current) return;
     submittedRef.current = true;
 
-    fetch('/api/submit-test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...data.userData,
-        recommendedMajor: data.recommendedMajor,
-        eyeHealthStatus: data.eyeHealthStatus,
-        scores: data.scores
-      })
-    }).catch(err => console.error('Failed to auto-submit:', err));
+    const controller = new AbortController();
+
+    const submitData = async () => {
+      try {
+        await fetch('/api/submit-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            ...data.userData,
+            recommendedMajor: data.recommendedMajor,
+            eyeHealthStatus: data.eyeHealthStatus,
+            scores: data.scores
+          })
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Failed to auto-submit:', err);
+        }
+      }
+    };
+
+    submitData();
+    return () => controller.abort();
   }, [data]);
 
   const downloadPDF = async () => {
@@ -521,10 +575,10 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
   return (
     <>
       {/* Hidden layout for PDF export to ensure exact branding */}
-      <div className="fixed -left-[9999px] top-0">
+      <div className="fixed -left-[9999px] top-0" style={{ color: '#000000' }}>
         <div 
           ref={resultRef}
-          style={{ backgroundColor: '#ffffff' }}
+          style={{ backgroundColor: '#ffffff', color: '#000000' }}
           className="w-[600px] p-10"
         >
           <div className="flex flex-col items-center pb-8 mb-8" style={{ borderBottom: '2px solid #f3f4f6' }}>
@@ -538,45 +592,45 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             <p className="font-bold uppercase tracking-widest text-xs" style={{ color: '#6b7280' }}>Laporan Hasil Penjajakan Bakat & Minat</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6 text-[10px]">
-            <div className="p-2 rounded-lg" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>No. Pendaftaran</p>
-              <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationNumber}</p>
+          <div className="grid grid-cols-2 gap-4 mb-6" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px', fontSize: '10px' }}>
+            <div style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '8px', padding: '8px' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', margin: 0 }}>No. Pendaftaran</p>
+              <p className="font-bold" style={{ color: '#1e3a8a', margin: 0 }}>{data.userData.registrationNumber}</p>
             </div>
-            <div className="p-2 rounded-lg text-right" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>Tgl Daftar</p>
-              <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationDate}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6 text-sm" style={{ display: 'grid' }}>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Nama Lengkap</p>
-              <p className="text-lg font-bold leading-tight" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.name}</p>
-            </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Jenis Kelamin</p>
-              <p className="text-lg font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.gender}</p>
-            </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Tanggal Lahir</p>
-              <p className="text-sm font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-            </div>
-            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Asal Sekolah</p>
-              <p className="text-lg font-bold" style={{ color: '#111827', fontWeight: 'bold' }}>{data.userData.previousSchool}</p>
-            </div>
-            <div className="p-4 rounded-xl col-span-2" style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', gridColumn: 'span 2 / span 2' }}>
-              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Alamat</p>
-              <p className="text-xs font-medium leading-tight" style={{ color: '#111827', fontWeight: 'medium' }}>{data.userData.address}</p>
+            <div style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '8px', padding: '8px', textAlign: 'right' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', margin: 0 }}>Tgl Daftar</p>
+              <p className="font-bold" style={{ color: '#1e3a8a', margin: 0 }}>{data.userData.registrationDate}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl p-8 mb-8" style={{ backgroundColor: '#2563eb', color: '#ffffff', borderRadius: '16px', padding: '32px' }}>
-            <p className="uppercase font-bold tracking-tighter text-sm mb-2" style={{ opacity: 0.8, fontWeight: 'bold' }}>Rekomendasi Jurusan Utama</p>
-            <h2 className="text-4xl font-black mb-4" style={{ fontWeight: '900', marginBottom: '16px' }}>{data.recommendedMajor}</h2>
-            <div className="h-1 w-full mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', height: '4px', marginBottom: '16px' }}></div>
-            <p className="text-sm leading-relaxed" style={{ color: '#eff6ff', fontSize: '14px', lineHeight: '1.625' }}>
+          <div className="grid grid-cols-2 gap-4 mb-6" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px', fontSize: '14px' }}>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Nama Lengkap</p>
+              <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.name}</p>
+            </div>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Jenis Kelamin</p>
+              <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.gender}</p>
+            </div>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Tanggal Lahir</p>
+              <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            </div>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Asal Sekolah</p>
+              <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.previousSchool}</p>
+            </div>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', gridColumn: 'span 2 / span 2' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Alamat</p>
+              <p style={{ color: '#111827', fontWeight: '500', fontSize: '12px', margin: 0 }}>{data.userData.address}</p>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#2563eb', color: '#ffffff', borderRadius: '16px', padding: '32px', marginBottom: '32px' }}>
+            <p style={{ textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '-0.05em', fontSize: '14px', marginBottom: '8px', opacity: 0.8 }}>Rekomendasi Jurusan Utama</p>
+            <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 16px 0' }}>{data.recommendedMajor}</h2>
+            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', height: '4px', width: '100%', marginBottom: '16px' }}></div>
+            <p style={{ color: '#eff6ff', fontSize: '14px', lineHeight: '1.625', margin: 0 }}>
               {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Siswa menunjukkan potensi besar dalam bidang mekanika logam dan sistem perkapalan. Kepemimpinan teknis yang baik di lingkungan industri berat."}
               {data.recommendedMajor === Major.TKR && "Siswa memiliki naluri tajam dalam diagnostik kendaraan dan sistem otomotif. Cocok untuk spesialisasi servis otomotif modern."}
               {data.recommendedMajor === Major.DKV && "Siswa memiliki kepekaan visual dan daya kreatif tinggi. Potensi besar dalam industri kreatif digital dan multimedia."}
@@ -584,48 +638,54 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </p>
           </div>
 
-          <div className="mb-8">
-            <h3 className="font-bold uppercase text-xs mb-4" style={{ color: '#374151' }}>Rincian Skor Per Jurusan</h3>
-            <div className="space-y-3">
-              {Object.entries(data.scores).map(([major, score]) => (
-                <div key={major} className="flex items-center gap-4">
-                  <div className="w-32 text-xs font-bold" style={{ color: '#4b5563' }}>{major}</div>
-                  <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
-                    <div 
-                       className="h-full"
-                       style={{ 
-                         width: `${Math.min(100, (Number(score) / 25) * 100)}%`,
-                         backgroundColor: major === data.recommendedMajor ? '#3b82f6' : '#d1d5db'
-                       }}
-                    />
-                  </div>
-                  <div className="w-8 text-xs font-black" style={{ color: '#9ca3af' }}>{score}</div>
-                </div>
-              ))}
+          <div style={{ marginBottom: '32px' }}>
+            <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', fontSize: '12px', color: '#374151', margin: '0 0 16px 0' }}>Rincian Skor & Analisis Kompetensi</h3>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                <thead style={{ backgroundColor: '#f9fafb' }}>
+                  <tr>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>JURUSAN</th>
+                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>BAKAT</th>
+                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>MINAT</th>
+                    <th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>SKOR TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(data.scores).map(([major, score]) => (
+                    <tr key={major} style={{ backgroundColor: major === data.recommendedMajor ? '#eff6ff' : '#ffffff' }}>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', fontWeight: 'bold', color: '#374151' }}>{major}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#2563eb' }}>{data.aptitudeScores[major as Major]}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#10b981' }}>{data.interestScores[major as Major]}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontWeight: '900', color: major === data.recommendedMajor ? '#1d4ed8' : '#9ca3af' }}>{score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            <p style={{ fontSize: '8px', color: '#9ca3af', marginTop: '8px', fontStyle: 'italic' }}>*Skor dihitung berdasarkan kombinasi tes potensi akademik (bakat) dan kuesioner ketertarikan (minat).</p>
           </div>
 
-          <div className="p-6 rounded-2xl" style={{ backgroundColor: '#f9fafb', border: '2px solid #f3f4f6', borderRadius: '16px', padding: '24px' }}>
-            <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ backgroundColor: '#f9fafb', border: '2px solid #f3f4f6', borderRadius: '16px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Status Kesehatan Mata</p>
-                <p className="text-sm font-black" style={{ color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c', fontWeight: '900' }}>
+                <p style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: 0 }}>Status Kesehatan Mata</p>
+                <p style={{ fontSize: '14px', fontWeight: '900', color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c', margin: 0 }}>
                   {data.eyeHealthStatus.toUpperCase()}
                 </p>
                 {data.eyeHealthStatus !== 'Normal' && (
-                  <p className="text-[8px] mt-1 max-w-[200px]" style={{ color: '#6b7280', fontSize: '8px' }}>
+                  <p style={{ color: '#6b7280', fontSize: '8px', marginTop: '4px', maxWidth: '200px', margin: '4px 0 0 0' }}>
                     *Saran: Segera konsultasi ke Dokter Mata/Optik terdekat untuk pemeriksaan ketajaman visual dan persepsi warna lebih mendalam.
                   </p>
                 )}
               </div>
-              <div className="text-right" style={{ textAlign: 'right' }}>
-                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Tanggal Tes</p>
-                <p className="font-bold" style={{ color: '#1f2937', fontWeight: 'bold' }}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: 0 }}>Tanggal Tes</p>
+                <p style={{ color: '#1f2937', fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 text-center" style={{ borderTop: '1px dashed #e5e7eb', marginTop: '40px', paddingTop: '24px', textAlign: 'center' }}>
+          <div className="mt-10 pt-6" style={{ borderTop: '1px dashed #e5e7eb', marginTop: '40px', paddingTop: '24px', textAlign: 'center' }}>
             <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
           </div>
         </div>
@@ -665,6 +725,155 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             {data.recommendedMajor === Major.DKV && "Kreativitas dan jiwa senimu sangat tinggi. Dunia konten digital dan desain menunggumu."}
             {data.recommendedMajor === Major.LOGISTIK && "Kamu sangat terorganisir dan memiliki kemampuan analisis alur kerja yang baik. Ahli logistik masa depan!"}
           </p>
+        </div>
+
+        {/* Visual Representations of Results */}
+        <div className="w-full bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-8">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-6 bg-blue-600 rounded-full" />
+            <h3 className="font-bold text-gray-800">Analisis Profil Bakat & Minat</h3>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Aptitude vs Interest Chart */}
+            <div className="flex-1 space-y-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase text-center">Perbandingan Bakat & Minat</p>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={Object.entries(Major).map(([_, value]) => ({
+                    subject: value.split(' ').map((s, i) => i === 0 ? s : s[0]).join(' '),
+                    A: data.aptitudeScores[value as Major],
+                    I: data.interestScores[value as Major],
+                    fullSubject: value
+                  }))}>
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 20]} hide />
+                    <Radar
+                      name="Bakat"
+                      dataKey="A"
+                      stroke="#2563eb"
+                      fill="#2563eb"
+                      fillOpacity={0.5}
+                    />
+                    <Radar
+                      name="Minat"
+                      dataKey="I"
+                      stroke="#10b981"
+                      fill="#10b981"
+                      fillOpacity={0.4}
+                    />
+                    <ChartTooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-3 border border-gray-100 rounded-xl shadow-xl text-[10px]">
+                              <p className="font-bold text-gray-900 mb-1">{payload[0].payload.fullSubject}</p>
+                              <p className="text-blue-600 font-bold">Bakat: {payload[0].value}</p>
+                              <p className="text-emerald-600 font-bold">Minat: {payload[1].value}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-4 text-[10px] font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-600" /> Bakat</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Minat</div>
+              </div>
+            </div>
+            
+            {/* Cumulative Competency Bar */}
+            <div className="flex-1 space-y-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase text-center">Skor Kumulatif</p>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={Object.entries(data.scores).map(([name, value]) => ({ 
+                      name: name.split(' ').map((s, i) => i === 0 ? s : s[0]).join(' '), 
+                      value,
+                      fullName: name
+                    }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#6b7280', fontWeight: 'bold' }}
+                    />
+                    <ChartTooltip 
+                      cursor={{ fill: 'transparent' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-3 border border-gray-100 rounded-xl shadow-xl">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase">{payload[0].payload.fullName}</p>
+                              <p className="text-lg font-black text-blue-600">{payload[0].value} Poin</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      radius={[0, 8, 8, 0]} 
+                      barSize={20}
+                    >
+                      {Object.entries(data.scores).map(([name], index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={name === data.recommendedMajor ? '#2563eb' : '#d1d5db'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(data.scores).map(([major, score]) => {
+              const aptitudePercentage = (data.aptitudeScores[major as Major] / 15) * 100;
+              const interestPercentage = (data.interestScores[major as Major] / 10) * 100;
+              const isLead = major === data.recommendedMajor;
+              return (
+                <div key={major} className={`p-4 rounded-2xl border transition-all ${isLead ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <p className={`text-[9px] font-bold uppercase ${isLead ? 'text-blue-600' : 'text-gray-400'}`}>{major}</p>
+                    <span className={`text-xs font-black ${isLead ? 'text-blue-700' : 'text-gray-600'}`}>{score}</span>
+                  </div>
+                  
+                  {/* Detailed Analysis */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[8px] text-gray-400 font-bold">
+                      <span>Bakat</span>
+                      <span>{Math.round(aptitudePercentage)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${Math.max(5, aptitudePercentage)}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[8px] text-gray-400 font-bold pt-1">
+                      <span>Minat</span>
+                      <span>{Math.round(interestPercentage)}%</span>
+                    </div>
+                    <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.max(5, interestPercentage)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="w-full text-left bg-gray-50 p-6 rounded-2xl space-y-4 shadow-sm" style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6' }}>
