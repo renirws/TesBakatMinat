@@ -146,7 +146,21 @@ export default function App() {
       }
     });
 
-    return { scores, isColorBlind, eyeHealthStatus, recommendedMajor: recommended, userData };
+    const res = { scores, isColorBlind, eyeHealthStatus, recommendedMajor: recommended, userData };
+    
+    // Auto-submit to background (Fire and forget, user doesn't need to wait)
+    fetch('/api/submit-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...res.userData,
+        recommendedMajor: res.recommendedMajor,
+        eyeHealthStatus: res.eyeHealthStatus,
+        scores: res.scores
+      })
+    }).catch(err => console.error('Failed to auto-submit:', err));
+
+    return res;
   };
 
   const pageVariants = {
@@ -160,7 +174,7 @@ export default function App() {
       <header className="w-full max-w-2xl flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <img 
-            src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+            src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
             alt="Logo SMK Tanjung Priok 1"
             className="w-12 h-12 object-contain filter drop-shadow-sm"
             referrerPolicy="no-referrer"
@@ -190,7 +204,7 @@ export default function App() {
                   transition={{ duration: 3, repeat: Infinity }}
                 />
                 <img 
-                  src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+                  src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
                   alt="SMK Tanjung Priok 1 Logo"
                   className="w-24 h-24 object-contain relative z-10"
                   referrerPolicy="no-referrer"
@@ -499,7 +513,7 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
         >
           <div className="flex flex-col items-center border-b-2 border-gray-100 pb-8 mb-8">
             <img 
-              src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+              src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
               className="w-24 h-24 mb-4"
               alt="Logo"
               crossOrigin="anonymous"
@@ -609,7 +623,7 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
       >
         <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-green-50 mb-4 relative">
           <img 
-            src="https://drive.google.com/uc?export=view&id=1dZKyaOqI_CJnmFMq1Zut3dHuVXM7Fqqr" 
+            src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
             alt="SMK Tanjung Priok 1 Logo"
             className="w-20 h-20 object-contain"
             referrerPolicy="no-referrer"
