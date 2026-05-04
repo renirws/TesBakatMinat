@@ -19,7 +19,8 @@ import {
   Truck, 
   Anchor,
   Info,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 import { Major, UserData, TestResult, Question } from './types';
 import { QUESTIONS, INTEREST_QUESTIONS, COLOR_TESTS } from './data/questions';
@@ -509,7 +510,8 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
       <div className="fixed -left-[9999px] top-0">
         <div 
           ref={resultRef}
-          className="w-[600px] p-10 bg-white"
+          style={{ backgroundColor: '#ffffff' }}
+          className="w-[600px] p-10"
         >
           <div className="flex flex-col items-center border-b-2 border-gray-100 pb-8 mb-8">
             <img 
@@ -518,49 +520,49 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
               alt="Logo"
               crossOrigin="anonymous"
             />
-            <h1 className="text-2xl font-black text-blue-900 uppercase">SMK Tanjung Priok 1</h1>
-            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Laporan Hasil Penjajakan Bakat & Minat</p>
+            <h1 className="text-2xl font-black uppercase" style={{ color: '#1e3a8a' }}>SMK Tanjung Priok 1</h1>
+            <p className="font-bold uppercase tracking-widest text-xs" style={{ color: '#6b7280' }}>Laporan Hasil Penjajakan Bakat & Minat</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6 text-[10px]">
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-              <p className="text-gray-400 font-bold uppercase">No. Pendaftaran</p>
-              <p className="font-bold text-blue-900">{data.userData.registrationNumber}</p>
+            <div className="p-2 rounded-lg border border-gray-100" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>No. Pendaftaran</p>
+              <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationNumber}</p>
             </div>
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 text-right">
-              <p className="text-gray-400 font-bold uppercase">Tgl Daftar</p>
-              <p className="font-bold text-blue-900">{data.userData.registrationDate}</p>
+            <div className="p-2 rounded-lg border border-gray-100 text-right" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase" style={{ color: '#9ca3af' }}>Tgl Daftar</p>
+              <p className="font-bold" style={{ color: '#1e3a8a' }}>{data.userData.registrationDate}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-            <div className="bg-gray-50 p-4 rounded-xl">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Nama Lengkap</p>
-              <p className="text-lg font-bold text-gray-800 leading-tight">{data.userData.name}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Nama Lengkap</p>
+              <p className="text-lg font-bold leading-tight" style={{ color: '#111827' }}>{data.userData.name}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-xl">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Jenis Kelamin</p>
-              <p className="text-lg font-bold text-gray-800">{data.userData.gender}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Jenis Kelamin</p>
+              <p className="text-lg font-bold" style={{ color: '#111827' }}>{data.userData.gender}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-xl">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Tanggal Lahir</p>
-              <p className="text-sm font-bold text-gray-800">{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Tanggal Lahir</p>
+              <p className="text-sm font-bold" style={{ color: '#111827' }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-xl">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Asal Sekolah</p>
-              <p className="text-lg font-bold text-gray-800">{data.userData.previousSchool}</p>
+            <div className="p-4 rounded-xl" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Asal Sekolah</p>
+              <p className="text-lg font-bold" style={{ color: '#111827' }}>{data.userData.previousSchool}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-xl col-span-2">
-              <p className="text-gray-400 font-bold uppercase text-[10px]">Alamat</p>
-              <p className="text-xs font-medium text-gray-800 leading-tight">{data.userData.address}</p>
+            <div className="p-4 rounded-xl col-span-2" style={{ backgroundColor: '#f9fafb' }}>
+              <p className="font-bold uppercase text-[10px]" style={{ color: '#9ca3af' }}>Alamat</p>
+              <p className="text-xs font-medium leading-tight" style={{ color: '#111827' }}>{data.userData.address}</p>
             </div>
           </div>
 
-          <div className="bg-blue-600 rounded-2xl p-8 text-white mb-8">
+          <div className="rounded-2xl p-8 mb-8" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}>
             <p className="uppercase font-bold tracking-tighter text-sm mb-2 opacity-80">Rekomendasi Jurusan Utama</p>
             <h2 className="text-4xl font-black mb-4">{data.recommendedMajor}</h2>
-            <div className="h-1 bg-white/20 w-full mb-4"></div>
-            <p className="text-sm leading-relaxed text-blue-50">
+            <div className="h-1 w-full mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}></div>
+            <p className="text-sm leading-relaxed" style={{ color: '#eff6ff' }}>
               {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Siswa menunjukkan potensi besar dalam bidang mekanika logam dan sistem perkapalan. Kepemimpinan teknis yang baik di lingkungan industri berat."}
               {data.recommendedMajor === Major.TKR && "Siswa memiliki naluri tajam dalam diagnostik kendaraan dan sistem otomotif. Cocok untuk spesialisasi servis otomotif modern."}
               {data.recommendedMajor === Major.DKV && "Siswa memiliki kepekaan visual dan daya kreatif tinggi. Potensi besar dalam industri kreatif digital dan multimedia."}
@@ -569,15 +571,18 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           </div>
 
           <div className="mb-8">
-            <h3 className="font-bold text-gray-700 uppercase text-xs mb-4">Rincian Skor Per Jurusan</h3>
+            <h3 className="font-bold uppercase text-xs mb-4" style={{ color: '#374151' }}>Rincian Skor Per Jurusan</h3>
             <div className="space-y-3">
               {Object.entries(data.scores).map(([major, score]) => (
                 <div key={major} className="flex items-center gap-4">
                   <div className="w-32 text-xs font-bold text-gray-600">{major}</div>
-                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
                     <div 
-                      className={`h-full ${major === data.recommendedMajor ? 'bg-blue-500' : 'bg-gray-300'}`}
-                      style={{ width: `${Math.min(100, (score / 25) * 100)}%` }}
+                       className="h-full"
+                       style={{ 
+                         width: `${Math.min(100, (score / 25) * 100)}%`,
+                         backgroundColor: major === data.recommendedMajor ? '#3b82f6' : '#d1d5db'
+                       }}
                     />
                   </div>
                   <div className="w-8 text-xs font-black text-gray-400">{score}</div>
@@ -586,28 +591,28 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </div>
           </div>
 
-          <div className="bg-gray-50 p-6 rounded-2xl border-2 border-gray-100">
+          <div className="p-6 rounded-2xl border-2 border-gray-100" style={{ backgroundColor: '#f9fafb' }}>
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Status Kesehatan Mata</p>
-                <p className={`text-sm font-black ${data.eyeHealthStatus === 'Normal' ? 'text-green-600' : 'text-orange-600'}`}>
+                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af' }}>Status Kesehatan Mata</p>
+                <p className="text-sm font-black" style={{ color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c' }}>
                   {data.eyeHealthStatus.toUpperCase()}
                 </p>
                 {data.eyeHealthStatus !== 'Normal' && (
-                  <p className="text-[8px] text-gray-500 mt-1 max-w-[200px]">
+                  <p className="text-[8px] mt-1 max-w-[200px]" style={{ color: '#6b7280' }}>
                     *Saran: Segera konsultasi ke Dokter Mata/Optik terdekat untuk pemeriksaan ketajaman visual dan persepsi warna lebih mendalam.
                   </p>
                 )}
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Tanggal Tes</p>
-                <p className="font-bold text-gray-800">{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <p className="text-[10px] font-bold uppercase" style={{ color: '#9ca3af' }}>Tanggal Tes</p>
+                <p className="font-bold" style={{ color: '#1f2937' }}>{new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-dashed border-gray-200 text-center">
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Dokumen Digital Resmi SMK Tanjung Priok 1</p>
+          <div className="mt-10 pt-6 border-t border-dashed border-gray-200 text-center" style={{ borderColor: '#e5e7eb' }}>
+            <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
           </div>
         </div>
       </div>
@@ -683,16 +688,33 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           <button 
             onClick={downloadPDF}
             disabled={isDownloading}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-100 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            {isDownloading ? (
-              <span className="flex items-center gap-2">Generating PDF...</span>
-            ) : (
-              <>
-                <Download className="w-5 h-5" />
-                Simpan Hasil (PDF)
-              </>
-            )}
+            <AnimatePresence mode="wait">
+              {isDownloading ? (
+                <motion.span 
+                  key="loading"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center gap-2"
+                >
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Generating...
+                </motion.span>
+              ) : (
+                <motion.span 
+                  key="idle"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-5 h-5" />
+                  Simpan Hasil (PDF)
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
           
           <button 
