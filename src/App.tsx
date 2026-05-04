@@ -68,8 +68,49 @@ export default function App() {
   const [currentIdx, setCurrentIdx] = useState(0);
 
   const [result, setResult] = useState<TestResult | null>(null);
-  const shuffledColorTests = useMemo(() => {
-    return [...COLOR_TESTS].sort(() => Math.random() - 0.5);
+
+  // Dynamic Color Tests: Generate random numbers and random color plates
+  const dynamicColorTests = useMemo(() => {
+    const ishiharaThemes = [
+      { text: '#e76f51', background: ['#8cb07d', '#7d9e6c', '#6b8256', '#94ad82'], label: 'Protan/Deutan' }, // Red-Orange on Greens
+      { text: '#8cb07d', background: ['#e6a15c', '#d18a4a', '#a67d56', '#b5a172'], label: 'Deutan' },       // Green on Oranges/Browns
+      { text: '#5fa8d3', background: ['#9b8d7c', '#8b7d6c', '#a69066', '#c4a675'], label: 'Tritan' },       // Blue on Grays/Browns
+      { text: '#f4a261', background: ['#2a9d8f', '#264653', '#7d9e6c'], label: 'Protan' },           // Orange on Teals
+      { text: '#deab90', background: ['#edede9', '#d6ccc2', '#f5ebe0'], label: 'Subtle' },           // Pinkish on Grays
+      { text: '#81b29a', background: ['#f2cc8f', '#e07a5f', '#3d405b'], label: 'Mixed' },            // Green on Varied
+      { text: '#ffb5a7', background: ['#fcd5ce', '#f8edeb', '#f9dcc4'], label: 'Low Contrast' },     // Light Pink on Pale
+      { text: '#3d405b', background: ['#5f0f40', '#9a031e', '#fb8b24'], label: 'Dark Confusion' },    // Blue-Gray on Warm Darks
+      { text: '#9ca3af', background: ['#f3f4f6', '#e5e7eb', '#d1d5db'], label: 'Gray Intensity' },   // Gray on Gray
+    ];
+
+    // Helper to add random variance to a hex color
+    const varyColor = (hex: string) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      
+      const variance = 25; // Increased variance for more organic noise
+      const vr = Math.max(0, Math.min(255, r + (Math.random() * variance - variance/2)));
+      const vg = Math.max(0, Math.min(255, g + (Math.random() * variance - variance/2)));
+      const vb = Math.max(0, Math.min(255, b + (Math.random() * variance - variance/2)));
+      
+      return `rgb(${Math.round(vr)}, ${Math.round(vg)}, ${Math.round(vb)})`;
+    };
+
+    return Array.from({ length: 10 }).map((_, i) => {
+      const num = Math.floor(Math.random() * 89) + 10;
+      const theme = ishiharaThemes[i % ishiharaThemes.length];
+      
+      return {
+        id: `dynamic_${i}`,
+        answer: num.toString(),
+        numberColor: theme.text,
+        plateColors: Array.from({ length: 450 }).map(() => {
+           const baseColor = theme.background[Math.floor(Math.random() * theme.background.length)];
+           return varyColor(baseColor);
+        })
+      };
+    });
   }, []);
 
   const allQuestions = useMemo(() => [...QUESTIONS, ...INTEREST_QUESTIONS], []);
@@ -96,7 +137,7 @@ export default function App() {
          setStep('color');
        }
     } else if (step === 'color') {
-        if (currentIdx < shuffledColorTests.length - 1) setCurrentIdx(currentIdx + 1);
+        if (currentIdx < dynamicColorTests.length - 1) setCurrentIdx(currentIdx + 1);
         else handleFinish();
     }
   };
@@ -164,13 +205,13 @@ export default function App() {
     let correctColorCount = 0;
     let cannotSeeCount = 0;
     
-    shuffledColorTests.forEach(test => {
+    dynamicColorTests.forEach(test => {
       const selected = colorAnswers[test.id];
       if (selected === test.answer) correctColorCount++;
       else if (selected === 'X') cannotSeeCount++;
     });
 
-    const isColorBlind = correctColorCount < 3 && cannotSeeCount < 2;
+    const isColorBlind = correctColorCount < (dynamicColorTests.length * 0.7); // Need 70% correct
     const isLowVision = cannotSeeCount >= 2;
 
     let eyeHealthStatus: TestResult['eyeHealthStatus'] = 'Normal';
@@ -433,27 +474,31 @@ export default function App() {
               exit="exit"
               className="space-y-6"
             >
-              <ProgressBar current={currentIdx + 1} total={shuffledColorTests.length} />
+              <ProgressBar current={currentIdx + 1} total={dynamicColorTests.length} />
               <div className="flex items-center gap-2 text-blue-600 mb-2 font-bold uppercase text-sm">
                 <Palette className="w-5 h-5" />
-                Tes Buta Warna
+                Tes Kepekaan Warna (Dinamis)
               </div>
               <div className="flex flex-col items-center gap-6">
-                <div className="w-48 h-48 rounded-full border-8 border-gray-200 bg-white flex items-center justify-center relative overflow-hidden shadow-2xl shadow-blue-100">
-                   <div className="absolute inset-0 flex flex-wrap gap-1 p-1 justify-center items-center opacity-60">
-                      {Array.from({length: 200}).map((_, i) => {
-                        const randomSize = Math.random() * 6 + 4;
-                        const bgColors = ['#8cb07d', '#7d9e6c', '#a69066', '#c4a675', '#6b8256', '#94ad82', '#b5a172'];
+                <div className="w-64 h-64 rounded-full border-8 border-gray-50 bg-white flex items-center justify-center relative overflow-hidden shadow-2xl">
+                   <div className="absolute inset-0 opacity-90">
+                      {dynamicColorTests[currentIdx].plateColors.map((color, i) => {
+                        const randomSize = Math.random() * 12 + 6;
+                        const randomTop = Math.random() * 100;
+                        const randomLeft = Math.random() * 100;
                         return (
                           <div 
-                            key={i} 
+                            key={i}
+                            className="rounded-full absolute transform -translate-x-1/2 -translate-y-1/2"
                             style={{ 
                               width: `${randomSize}px`, 
-                              height: `${randomSize}px`,
-                              backgroundColor: bgColors[Math.floor(Math.random() * bgColors.length)],
-                              opacity: 0.8
+                              height: `${randomSize}px`, 
+                              backgroundColor: color,
+                              top: `${randomTop}%`,
+                              left: `${randomLeft}%`,
+                              opacity: Math.random() * 0.4 + 0.6,
+                              filter: `brightness(${Math.random() * 0.2 + 0.9})`
                             }}
-                            className="rounded-full shrink-0" 
                           />
                         );
                       })}
@@ -461,33 +506,57 @@ export default function App() {
                    <motion.span 
                       key={currentIdx}
                       initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="text-8xl font-black text-orange-600/50 z-10 select-none mix-blend-darken tracking-tighter drop-shadow-[0_0_1px_rgba(0,0,0,0.1)]"
+                      animate={{ scale: 1, opacity: 0.55 }}
+                      className="text-9xl font-black z-10 select-none tracking-tight"
+                      style={{ 
+                        color: dynamicColorTests[currentIdx].numberColor, 
+                        mixBlendMode: 'multiply',
+                        filter: 'blur(0.5px)' 
+                      }}
                     >
-                     {shuffledColorTests[currentIdx].answer}
+                     {dynamicColorTests[currentIdx].answer}
                    </motion.span>
                 </div>
-                <div className="max-w-xs text-center">
-                  <p className="text-gray-500 text-xs italic mb-2">Angka di atas dibuat samar untuk menguji ketajaman mata dan persepsi warna Kamu.</p>
-                  <p className="text-sm font-bold text-gray-700">Angka berapa yang kamu lihat?</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  {['12', '8', '6', '29', '74', 'X'].map((val) => (
-                    <button 
-                      key={val}
-                      onClick={() => {
-                        setColorAnswers({ ...colorAnswers, [shuffledColorTests[currentIdx].id]: val });
-                        setTimeout(handleNext, 300);
+                <div className="max-w-xs w-full text-center space-y-4">
+                  <p className="text-gray-600 text-sm font-medium">Berapa angka yang terlihat pada gambar di atas? (Tes acak setiap sesi)</p>
+                  <div className="space-y-4">
+                    <input 
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoFocus
+                      placeholder="Masukkan Angka..."
+                      className="w-full p-4 text-center text-3xl font-black border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                      onChange={(e) => {
+                         const val = e.target.value.replace(/[^0-9]/g, '');
+                         setColorAnswers({ ...colorAnswers, [dynamicColorTests[currentIdx].id]: val });
                       }}
-                      className={`p-4 rounded-xl border-2 font-bold text-lg transition-all ${
-                        colorAnswers[shuffledColorTests[currentIdx].id] === val 
-                          ? 'bg-blue-600 border-blue-600 text-white transform scale-105' 
-                          : 'bg-white border-gray-200 hover:border-blue-400 text-gray-700'
-                      }`}
-                    >
-                      {val === 'X' ? 'TIDAK TERLIHAT' : val}
-                    </button>
-                  ))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && colorAnswers[dynamicColorTests[currentIdx].id]) {
+                          handleNext();
+                        }
+                      }}
+                      value={colorAnswers[dynamicColorTests[currentIdx].id] || ''}
+                    />
+                    <div className="flex gap-2">
+                       <button 
+                         onClick={() => {
+                           setColorAnswers({ ...colorAnswers, [dynamicColorTests[currentIdx].id]: 'X' });
+                           handleNext();
+                         }}
+                         className="flex-1 py-4 text-xs font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                       >
+                         TIDAK TERLIHAT
+                       </button>
+                       <button 
+                         onClick={handleNext}
+                         disabled={!colorAnswers[dynamicColorTests[currentIdx].id]}
+                         className="flex-[2] bg-blue-600 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                       >
+                         LANJUT <ChevronRight className="w-4 h-4" />
+                       </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -552,7 +621,24 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Remove all style tags that might contain oklch to prevent html2canvas from crashing
+          // This is critical for Tailwind 4 compatibility in PDF export
+          const styleTags = clonedDoc.getElementsByTagName('style');
+          for (let i = styleTags.length - 1; i >= 0; i--) {
+            if (styleTags[i].innerHTML.includes('oklch')) {
+              styleTags[i].remove();
+            }
+          }
+          // Also check link tags (external stylesheets)
+          const linkTags = clonedDoc.getElementsByTagName('link');
+          for (let i = linkTags.length - 1; i >= 0; i--) {
+             if (linkTags[i].rel === 'stylesheet') {
+               linkTags[i].remove();
+             }
+          }
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -575,62 +661,61 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
   return (
     <>
       {/* Hidden layout for PDF export to ensure exact branding */}
-      <div className="fixed -left-[9999px] top-0" style={{ color: '#000000' }}>
+      <div style={{ position: 'fixed', left: '-9999px', top: '0', color: '#000000', backgroundColor: '#ffffff', zIndex: -1 }}>
         <div 
           ref={resultRef}
-          style={{ backgroundColor: '#ffffff', color: '#000000' }}
-          className="w-[600px] p-10"
+          style={{ backgroundColor: '#ffffff', color: '#000000', width: '600px', padding: '40px', fontFamily: 'Arial, sans-serif' }}
         >
-          <div className="flex flex-col items-center pb-8 mb-8" style={{ borderBottom: '2px solid #f3f4f6' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: '2px solid #f3f4f6', paddingBottom: '32px', marginBottom: '32px' }}>
             <img 
               src="https://lh3.googleusercontent.com/d/1hFPbiJeK9XgVBaXLFnAFmvPHccNWbEv4" 
-              className="w-24 h-24 mb-4"
+              style={{ width: '96px', height: '96px', marginBottom: '16px' }}
               alt="Logo"
               crossOrigin="anonymous"
             />
-            <h1 className="text-2xl font-black uppercase" style={{ color: '#1e3a8a' }}>SMK Tanjung Priok 1</h1>
-            <p className="font-bold uppercase tracking-widest text-xs" style={{ color: '#6b7280' }}>Laporan Hasil Penjajakan Bakat & Minat</p>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e3a8a', margin: '0 0 4px 0' }}>SMK Tanjung Priok 1</h1>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#6b7280', margin: 0 }}>Laporan Hasil Penjajakan Bakat & Minat</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px', fontSize: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '8px', padding: '8px' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', margin: 0 }}>No. Pendaftaran</p>
-              <p className="font-bold" style={{ color: '#1e3a8a', margin: 0 }}>{data.userData.registrationNumber}</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: 0 }}>No. Pendaftaran</p>
+              <p style={{ fontWeight: 'bold', color: '#1e3a8a', fontSize: '10px', margin: 0 }}>{data.userData.registrationNumber}</p>
             </div>
             <div style={{ backgroundColor: '#f9fafb', border: '1px solid #f3f4f6', borderRadius: '8px', padding: '8px', textAlign: 'right' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', margin: 0 }}>Tgl Daftar</p>
-              <p className="font-bold" style={{ color: '#1e3a8a', margin: 0 }}>{data.userData.registrationDate}</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: 0 }}>Tgl Daftar</p>
+              <p style={{ fontWeight: 'bold', color: '#1e3a8a', fontSize: '10px', margin: 0 }}>{data.userData.registrationDate}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px', fontSize: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Nama Lengkap</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: '0 0 4px 0' }}>Nama Lengkap</p>
               <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.name}</p>
             </div>
             <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Jenis Kelamin</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: '0 0 4px 0' }}>Jenis Kelamin</p>
               <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.gender}</p>
             </div>
             <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Tanggal Lahir</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: '0 0 4px 0' }}>Tanggal Lahir</p>
               <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{new Date(data.userData.birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
             <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Asal Sekolah</p>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: '0 0 4px 0' }}>Asal Sekolah</p>
               <p style={{ color: '#111827', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>{data.userData.previousSchool}</p>
             </div>
-            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', gridColumn: 'span 2 / span 2' }}>
-              <p className="font-bold uppercase" style={{ color: '#9ca3af', fontWeight: 'bold', fontSize: '10px', margin: 0 }}>Alamat</p>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '12px', padding: '16px', gridColumn: 'span 2' }}>
+              <p style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', fontSize: '10px', margin: '0 0 4px 0' }}>Alamat</p>
               <p style={{ color: '#111827', fontWeight: '500', fontSize: '12px', margin: 0 }}>{data.userData.address}</p>
             </div>
           </div>
 
           <div style={{ backgroundColor: '#2563eb', color: '#ffffff', borderRadius: '16px', padding: '32px', marginBottom: '32px' }}>
-            <p style={{ textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '-0.05em', fontSize: '14px', marginBottom: '8px', opacity: 0.8 }}>Rekomendasi Jurusan Utama</p>
-            <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 16px 0' }}>{data.recommendedMajor}</h2>
-            <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', height: '4px', width: '100%', marginBottom: '16px' }}></div>
-            <p style={{ color: '#eff6ff', fontSize: '14px', lineHeight: '1.625', margin: 0 }}>
+            <p style={{ textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '-0.05em', fontSize: '14px', marginBottom: '8px', color: '#ffffff', opacity: 0.8 }}>Rekomendasi Jurusan Utama</p>
+            <h2 style={{ fontSize: '36px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#ffffff' }}>{data.recommendedMajor}</h2>
+            <div style={{ backgroundColor: '#ffffff', opacity: 0.2, height: '4px', width: '100%', marginBottom: '16px' }}></div>
+            <p style={{ color: '#eff6ff', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>
               {data.recommendedMajor === Major.PEMESINAN_KAPAL && "Siswa menunjukkan potensi besar dalam bidang mekanika logam dan sistem perkapalan. Kepemimpinan teknis yang baik di lingkungan industri berat."}
               {data.recommendedMajor === Major.TKR && "Siswa memiliki naluri tajam dalam diagnostik kendaraan dan sistem otomotif. Cocok untuk spesialisasi servis otomotif modern."}
               {data.recommendedMajor === Major.DKV && "Siswa memiliki kepekaan visual dan daya kreatif tinggi. Potensi besar dalam industri kreatif digital dan multimedia."}
@@ -641,35 +726,35 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
           <div style={{ marginBottom: '32px' }}>
             <h3 style={{ textTransform: 'uppercase', fontWeight: 'bold', fontSize: '12px', color: '#374151', margin: '0 0 16px 0' }}>Rincian Skor & Analisis Kompetensi</h3>
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ backgroundColor: '#f9fafb' }}>
                   <tr>
-                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>JURUSAN</th>
-                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>BAKAT</th>
-                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>MINAT</th>
-                    <th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', color: '#6b7280' }}>SKOR TOTAL</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '10px' }}>JURUSAN</th>
+                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '10px' }}>BAKAT</th>
+                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '10px' }}>MINAT</th>
+                    <th style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e5e7eb', color: '#6b7280', fontSize: '10px' }}>SKOR TOTAL</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(data.scores).map(([major, score]) => (
                     <tr key={major} style={{ backgroundColor: major === data.recommendedMajor ? '#eff6ff' : '#ffffff' }}>
-                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', fontWeight: 'bold', color: '#374151' }}>{major}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#2563eb' }}>{data.aptitudeScores[major as Major]}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#10b981' }}>{data.interestScores[major as Major]}</td>
-                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontWeight: '900', color: major === data.recommendedMajor ? '#1d4ed8' : '#9ca3af' }}>{score}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', fontWeight: 'bold', color: '#374151', fontSize: '10px' }}>{major}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#2563eb', fontSize: '10px' }}>{data.aptitudeScores[major as Major]}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'center', color: '#10b981', fontSize: '10px' }}>{data.interestScores[major as Major]}</td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', fontWeight: 'bold', color: major === data.recommendedMajor ? '#1d4ed8' : '#9ca3af', fontSize: '10px' }}>{score}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p style={{ fontSize: '8px', color: '#9ca3af', marginTop: '8px', fontStyle: 'italic' }}>*Skor dihitung berdasarkan kombinasi tes potensi akademik (bakat) dan kuesioner ketertarikan (minat).</p>
+            <p style={{ fontSize: '8px', color: '#9ca3af', marginTop: '8px', fontStyle: 'italic', margin: '8px 0 0 0' }}>*Skor dihitung berdasarkan kombinasi tes potensi akademik (bakat) dan kuesioner ketertarikan (minat).</p>
           </div>
 
           <div style={{ backgroundColor: '#f9fafb', border: '2px solid #f3f4f6', borderRadius: '16px', padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <p style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: 0 }}>Status Kesehatan Mata</p>
-                <p style={{ fontSize: '14px', fontWeight: '900', color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c', margin: 0 }}>
+                <p style={{ fontSize: '14px', fontWeight: 'bold', color: data.eyeHealthStatus === 'Normal' ? '#16a34a' : '#ea580c', margin: 0 }}>
                   {data.eyeHealthStatus.toUpperCase()}
                 </p>
                 {data.eyeHealthStatus !== 'Normal' && (
@@ -685,8 +770,8 @@ function ResultSection({ data, onRestart }: { data: TestResult; onRestart: () =>
             </div>
           </div>
 
-          <div className="mt-10 pt-6" style={{ borderTop: '1px dashed #e5e7eb', marginTop: '40px', paddingTop: '24px', textAlign: 'center' }}>
-            <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#9ca3af', fontWeight: 'bold' }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
+          <div style={{ borderTop: '1px dashed #e5e7eb', marginTop: '40px', paddingTop: '24px', textAlign: 'center' }}>
+            <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 'bold', color: '#9ca3af', margin: 0 }}>Dokumen Digital Resmi SMK Tanjung Priok 1</p>
           </div>
         </div>
       </div>
